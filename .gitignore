@@ -1,0 +1,12 @@
+node_modules/
+.vercel/
+build/
+dist/
+coverage/
+playwright-report/
+test-results/
+.npm-cache-task/
+.DS_Store
+*.log
+.env*
+!.env.example

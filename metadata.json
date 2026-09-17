@@ -1,0 +1,8 @@
+{
+  "name": "Client Radar Pamda",
+  "description": "Estruturação inteligente de dados geográficos para prospecção B2B com limpeza de telefones, links WhatsApp e mapeamento.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
