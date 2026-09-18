@@ -32,18 +32,52 @@ test('exibe dados do backend, seleciona filiais homônimas e preserva ausência 
   expect(data.resultados_processados[1].telefone).toBe('');
 });
 
-test('cria rota no Google Maps começando pelo terminal mais próximo da primeira loja', async ({ page }) => {
+test('ordena lista e CSV partindo do terminal da região pesquisada', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const second = { ...lead, id: 'test-b', nome_loja: 'Outra empresa', coordenadas: { lat: -25.5, lng: -49.3 } };
+  let queries = 0;
+  await page.route('**/api/route-terminal', route => {
+    queries++;
+    expect(route.request().postDataJSON()).toEqual({ regiao_alvo: 'Curitiba - PR' });
+    return route.fulfill({ json: { id: 'terminal-test', nome: 'Terminal de teste', endereco: 'Endereço do terminal', coordenadas: { lat: -25.51, lng: -49.31 } } });
+  });
   await page.route('**/api/process-leads', route => route.fulfill({ json: pageData([lead, second]) }));
   await page.goto('/'); await search(page);
+  await page.getByRole('button', { name: 'Organizar por rota', exact: true }).click();
+  await expect(page.locator('article h3')).toHaveText(['1. Outra empresa', '2. Empresa para teste']);
   const href = await page.getByRole('link', { name: 'Criar rota no Google Maps' }).getAttribute('href');
   expect(href).toBeTruthy();
   const route = new URL(href);
   expect(route.pathname).toBe('/maps/dir/');
-  expect(route.searchParams.get('origin')).toContain('Terminal de ônibus mais próximo');
-  expect(route.searchParams.get('origin')).toContain('-25.4,-49.2');
-  expect(route.searchParams.get('destination')).toBe('-25.5,-49.3');
-  expect(route.searchParams.get('waypoints')).toBe('-25.4,-49.2');
+  expect(route.searchParams.get('origin')).toBe('-25.51,-49.31');
+  expect(route.searchParams.get('origin_place_id')).toBe('terminal-test');
+  expect(route.searchParams.get('destination')).toBe('-25.4,-49.2');
+  expect(route.searchParams.get('waypoints')).toBe('-25.5,-49.3');
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar CSV' }).click();
+  const download = await pending;
+  let content = ''; for await (const chunk of await download.createReadStream()) content += chunk.toString('utf8');
+  expect(content).toContain('Ordem de visita');
+  expect(content).toContain('Terminal de teste');
+  expect(content.indexOf('Outra empresa')).toBeLessThan(content.indexOf('Empresa para teste'));
+  await page.getByRole('textbox', { name: 'Filtrar estabelecimentos' }).fill('Empresa para teste');
+  await expect(page.locator('article h3')).toHaveText(['1. Empresa para teste']);
+  expect(queries).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Voltar à ordem da busca' }).click();
+  await page.getByRole('textbox', { name: 'Filtrar estabelecimentos' }).fill('');
+  await expect(page.locator('article h3')).toHaveText(['Empresa para teste', 'Outra empresa']);
+});
+
+test('erro ao encontrar terminal permite tentar novamente e exportar CSV normal', async ({ page }) => {
+  await page.route('**/api/process-leads', route => route.fulfill({ json: pageData([lead]) }));
+  await page.route('**/api/route-terminal', route => route.fulfill({ status: 404, json: { error: { message: 'Nenhum terminal encontrado' } } }));
+  await page.goto('/'); await search(page);
+  await page.getByRole('button', { name: 'Organizar por rota', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Nenhum terminal encontrado');
+  await expect(page.getByRole('button', { name: 'Organizar por rota', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Exportar CSV' })).toBeEnabled();
+  await expect(page.getByRole('link', { name: 'Criar rota no Google Maps' })).toHaveCount(0);
 });
 
 test('paginação mantém consulta, envia token e não duplica estabelecimentos', async ({ page }) => {
@@ -88,7 +122,7 @@ test('HTML de estabelecimento é exibido como texto, sem execução', async ({ p
 
 test('exporta apenas os resultados filtrados e funciona em largura de celular', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.route('**/api/process-leads', route => route.fulfill({ json: pageData([lead, { ...lead, id: 'test-b', nome_loja: 'Outra empresa' }]) }));
+  await page.route('**/api/process-leads', route => route.fulfill({ json: pageData([lead, { ...lead, id: 'test-b', nome_loja: 'Outra empresa', bairro: 'Água Verde' }]) }));
   await page.goto('/'); await search(page);
   await page.getByRole('textbox', { name: 'Filtrar estabelecimentos' }).fill('Outra');
   await expect(page.locator('article')).toHaveCount(1);
@@ -98,6 +132,8 @@ test('exporta apenas os resultados filtrados e funciona em largura de celular', 
   const stream = await download.createReadStream();
   let content = ''; for await (const chunk of stream) content += chunk.toString('utf8');
   expect(content).toContain('Outra empresa');
+  expect(content).toContain('"Bairro"');
+  expect(content).toContain('Água Verde');
   expect(content).not.toContain('Empresa para teste');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

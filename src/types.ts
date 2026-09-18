@@ -12,9 +12,17 @@ export interface ResultadoProcessado {
   id: string;
   nome_loja: string;
   endereco: string;
+  bairro: string;
   telefone: string;
   link_whatsapp: string;
   coordenadas: Coordenadas | null;
+}
+
+export interface TerminalRota {
+  id: string;
+  nome: string;
+  endereco: string;
+  coordenadas: Coordenadas;
 }
 
 export interface LeadExtractionPayload {

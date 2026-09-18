@@ -14,6 +14,9 @@ export function placeToLead(place: GooglePlace): ResultadoProcessado | null {
     id: place.id ?? `derived:${createHash('sha256').update(identity).digest('hex').slice(0, 24)}`,
     nome_loja: name,
     endereco: place.formattedAddress?.trim() ?? '',
+    bairro: ['sublocality_level_1', 'neighborhood', 'sublocality'].map(type =>
+      place.addressComponents?.find(component => component.types.includes(type))?.longText.trim()
+    ).find(Boolean) ?? '',
     telefone: phone.formatted,
     link_whatsapp: phone.isCell ? `https://wa.me/${phone.cleanDigits}` : '',
     coordenadas: location ? { lat: location.latitude, lng: location.longitude } : null,

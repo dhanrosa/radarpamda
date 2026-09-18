@@ -2,8 +2,9 @@ import { DEFAULT_PLACES_QUERY, readPlacesResponse } from '../src/types/places.ts
 import type { GooglePlace } from '../src/types/places.ts';
 
 export const PLACES_FIELD_MASK = 'places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.location';
-export const PLACES_SEARCH_FIELD_MASK = `places.id,${PLACES_FIELD_MASK},nextPageToken`;
-type SearchOptions = { apiKey?: string; fetchImpl?: typeof fetch; timeoutMs?: number; pageToken?: string; paginated?: boolean };
+export const PLACES_SEARCH_FIELD_MASK = `places.id,${PLACES_FIELD_MASK},places.addressComponents,nextPageToken`;
+type SearchOptions = { apiKey?: string; fetchImpl?: typeof fetch; timeoutMs?: number; pageToken?: string; paginated?: boolean;
+  terminalCenter?: { latitude: number; longitude: number } };
 
 export class PlacesError extends Error {
   status: number;
@@ -51,7 +52,9 @@ async function requestPlaces(textQuery: string, options: SearchOptions): Promise
         'X-Goog-Api-Key': apiKey.trim(),
         'X-Goog-FieldMask': options.paginated ? PLACES_SEARCH_FIELD_MASK : PLACES_FIELD_MASK,
       },
-      body: JSON.stringify({ textQuery: query, ...(options.paginated ? { languageCode: 'pt-BR', regionCode: 'BR', pageSize: 20 } : {}), ...(options.pageToken ? { pageToken: options.pageToken } : {}) }),
+      body: JSON.stringify({ textQuery: query, ...(options.paginated ? { languageCode: 'pt-BR', regionCode: 'BR', pageSize: 20 } : {}), ...(options.pageToken ? { pageToken: options.pageToken } : {}),
+        ...(options.terminalCenter ? { includedType: 'bus_station', strictTypeFiltering: true, rankPreference: 'DISTANCE', locationBias: { circle: { center: options.terminalCenter, radius: 50000 } } } : {}),
+      }),
       signal: AbortSignal.timeout(options.timeoutMs ?? 15_000),
     });
 

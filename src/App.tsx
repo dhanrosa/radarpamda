@@ -86,7 +86,7 @@ export default function App() {
         </div>
         {data.resultados_processados.length === 0 && <div className="rounded-xl border border-slate-800 bg-slate-900 p-8 text-center"><h2 className="font-semibold">Nenhum estabelecimento encontrado</h2><p className="mt-2 text-sm text-slate-400">Revise os termos ou amplie a região da busca.</p></div>}
         {view === 'json' ? <StrictJsonViewer data={data} /> : data.resultados_processados.length > 0 && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <LeadsList leads={data.resultados_processados} selectedLead={selected} onSelectLead={setSelected} />
+          <LeadsList key={JSON.stringify(data.parametros_busca)} region={data.parametros_busca.regiao_alvo} leads={data.resultados_processados} selectedLead={selected} onSelectLead={setSelected} />
           <LeadMap selectedLead={selected} />
         </div>}
         {Object.keys(data.proximas_paginas).length > 0 && <div className="text-center"><button disabled={loading} onClick={() => void search({ ...data.parametros_busca, proximas_paginas: data.proximas_paginas }, true)} className="rounded-lg border border-emerald-700 px-5 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-950 disabled:opacity-50">Carregar mais resultados</button></div>}

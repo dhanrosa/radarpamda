@@ -6,6 +6,7 @@ export interface GooglePlace {
   displayName?: { text: string; languageCode?: string };
   formattedAddress?: string;
   nationalPhoneNumber?: string;
+  addressComponents?: { longText: string; types: string[] }[];
   location?: { latitude: number; longitude: number };
 }
 
@@ -34,6 +35,13 @@ export function readPlacesResponse(data: unknown): GooglePlace[] {
         if (typeof place[field] !== 'string') throw invalid();
         result[field] = place[field];
       }
+    }
+    if (place.addressComponents !== undefined) {
+      if (!Array.isArray(place.addressComponents)) throw invalid();
+      result.addressComponents = place.addressComponents.map(component => {
+        if (!isObject(component) || typeof component.longText !== 'string' || !Array.isArray(component.types) || component.types.some(type => typeof type !== 'string')) throw invalid();
+        return { longText: component.longText, types: component.types as string[] };
+      });
     }
     if (place.location !== undefined) {
       if (!isObject(place.location)) throw invalid();

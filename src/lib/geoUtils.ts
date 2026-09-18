@@ -1,4 +1,4 @@
-import type { LeadExtractionPayload, ResultadoProcessado } from '../types';
+import type { LeadExtractionPayload, ResultadoProcessado, TerminalRota } from '../types';
 export { formatarTelefoneBR } from './leadData';
 
 export function csvCell(value: unknown): string {
@@ -7,10 +7,11 @@ export function csvCell(value: unknown): string {
   return '"' + text.replace(/"/g, '""') + '"';
 }
 
-export function toCSV(leads: ResultadoProcessado[]): string {
+export function toCSV(leads: ResultadoProcessado[], terminal?: TerminalRota): string {
+  let stop = 0;
   const rows = [
-    ['Nome da Loja', 'Endereço', 'Telefone', 'Link de contato WhatsApp', 'Latitude', 'Longitude', 'Google Place ID'],
-    ...leads.map(lead => [lead.nome_loja, lead.endereco, lead.telefone, lead.link_whatsapp, lead.coordenadas?.lat, lead.coordenadas?.lng, lead.id]),
+    [...(terminal ? ['Ordem de visita', 'Terminal de partida', 'Endereço do terminal', 'Latitude do terminal', 'Longitude do terminal', 'Situação na rota'] : []), 'Nome da Loja', 'Bairro', 'Endereço', 'Telefone', 'Link de contato WhatsApp', 'Latitude', 'Longitude', 'Google Place ID'],
+    ...leads.map(lead => [...(terminal ? [lead.coordenadas ? ++stop : '', terminal.nome, terminal.endereco, terminal.coordenadas.lat, terminal.coordenadas.lng, lead.coordenadas ? 'Visita ordenada por proximidade' : 'Sem coordenadas: organizar manualmente'] : []), lead.nome_loja, lead.bairro, lead.endereco, lead.telefone, lead.link_whatsapp, lead.coordenadas?.lat, lead.coordenadas?.lng, lead.id]),
   ];
   return '\uFEFF' + rows.map(row => row.map(csvCell).join(';')).join('\r\n');
 }
@@ -26,8 +27,8 @@ function download(content: string, mime: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function exportarParaCSV(leads: ResultadoProcessado[], filename = 'leads_prospeccao.csv') {
-  download(toCSV(leads), 'text/csv;charset=utf-8;', filename);
+export function exportarParaCSV(leads: ResultadoProcessado[], filename = 'leads_prospeccao.csv', terminal?: TerminalRota) {
+  download(toCSV(leads, terminal), 'text/csv;charset=utf-8;', filename);
 }
 
 export function strictPayload(data: LeadExtractionPayload) {

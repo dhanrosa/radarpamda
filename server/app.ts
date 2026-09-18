@@ -3,6 +3,7 @@ import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { PlacesError } from './googlePlaces.ts';
 import { createPlacesHandler } from './placesRoute.ts';
 import { searchLeads } from './leadSearch.ts';
+import { findRouteTerminal } from './routeSearch.ts';
 
 function searchBudget(): RequestHandler {
   let start = Date.now();
@@ -26,7 +27,7 @@ function searchBudget(): RequestHandler {
   };
 }
 
-export function createApp(search = searchLeads) {
+export function createApp(search = searchLeads, findTerminal = findRouteTerminal) {
   const app = express();
   app.disable('x-powered-by');
   app.use((_req, res, next) => {
@@ -50,6 +51,13 @@ export function createApp(search = searchLeads) {
   app.use('/api', searchBudget());
   app.get('/api/health', (_req, res) => res.json({ status: 'ok', mode: 'real', placesConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY?.trim()) }));
   app.post('/api/places/search', createPlacesHandler());
+  app.post('/api/route-terminal', async (req, res) => {
+    try { res.json(await findTerminal(req.body)); }
+    catch (error) {
+      const failure = error instanceof PlacesError ? error : new PlacesError('Não foi possível localizar o terminal. Tente novamente.', 500, 'ROUTE_ERROR');
+      res.status(failure.status).json({ error: { code: failure.code, message: failure.message } });
+    }
+  });
   app.post('/api/process-leads', async (req, res) => {
     try { res.json(await search(req.body)); }
     catch (error) {

@@ -24,25 +24,6 @@ export function mapsLink(lead: ResultadoProcessado): string {
   return `https://www.google.com/maps/search/?${params}`;
 }
 
-function routeLocation(lead: ResultadoProcessado): string {
-  return lead.coordenadas ? `${lead.coordenadas.lat},${lead.coordenadas.lng}` : [lead.nome_loja, lead.endereco].filter(Boolean).join(', ');
-}
-
-export function routeLink(leads: ResultadoProcessado[]): string | null {
-  const locations = leads.filter(lead => lead.coordenadas || lead.endereco).slice(0, 10);
-  if (!locations.length) return null;
-  const first = locations[0];
-  const orderedStops = locations.map(routeLocation);
-  const params = new URLSearchParams({
-    api: '1',
-    origin: `Terminal de ônibus mais próximo de ${routeLocation(first)}`,
-    destination: orderedStops[orderedStops.length - 1],
-    travelmode: 'driving',
-  });
-  if (orderedStops.length > 1) params.set('waypoints', orderedStops.slice(0, -1).join('|'));
-  return `https://www.google.com/maps/dir/?${params}`;
-}
-
 export function mergeLeads(current: ResultadoProcessado[], incoming: ResultadoProcessado[]): ResultadoProcessado[] {
   const items = new Map(current.map(lead => [lead.id, lead]));
   for (const lead of incoming) {
@@ -52,6 +33,7 @@ export function mergeLeads(current: ResultadoProcessado[], incoming: ResultadoPr
       telefone: lead.telefone || previous.telefone,
       link_whatsapp: lead.link_whatsapp || previous.link_whatsapp,
       endereco: lead.endereco || previous.endereco,
+      bairro: lead.bairro || previous.bairro,
       coordenadas: lead.coordenadas ?? previous.coordenadas,
     } : lead);
   }
@@ -83,6 +65,8 @@ export function readSearchPage(value: unknown): SearchPage {
   const parameters = validateSearchRequest(data.parametros_busca);
   if (data.fonte !== 'Google Places' || typeof data.consultado_em !== 'string' || !Number.isFinite(Date.parse(data.consultado_em)) || !Array.isArray(data.resultados_processados)) throw new Error('Resposta inválida da busca.');
   for (const lead of data.resultados_processados) {
+    if (lead && lead.bairro === undefined) lead.bairro = '';
+    if (lead && typeof lead.bairro !== 'string') throw new Error('Bairro inválido na resposta.');
     if (!lead || (['id', 'nome_loja', 'endereco', 'telefone', 'link_whatsapp'] as const).some(key => typeof lead[key] !== 'string') || !lead.id || !lead.nome_loja) throw new Error('Estabelecimento inválido na resposta.');
     if (lead.coordenadas !== null && (!lead.coordenadas || !Number.isFinite(lead.coordenadas.lat) || !Number.isFinite(lead.coordenadas.lng) || Math.abs(lead.coordenadas.lat) > 90 || Math.abs(lead.coordenadas.lng) > 180)) throw new Error('Coordenadas inválidas na resposta.');
     const tel = formatarTelefoneBR(lead.telefone);
