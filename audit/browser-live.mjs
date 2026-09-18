@@ -10,7 +10,8 @@ try {
   await page.getByRole('heading', { name: 'Faça sua primeira busca' }).waitFor();
   assert.equal(await page.locator('article').count(), 0);
   await page.getByLabel('Termo 1', { exact: true }).fill('assistência técnica de celular');
-  await page.getByLabel('Região da busca', { exact: true }).fill('Centro, Curitiba - PR');
+  await page.getByLabel('Cidade', { exact: true }).fill('Curitiba - PR');
+  await page.getByLabel('Bairro (opcional)', { exact: true }).fill('Centro');
   const request = page.waitForResponse(response => response.url().endsWith('/api/process-leads'));
   await page.getByRole('button', { name: 'Buscar estabelecimentos', exact: true }).click();
   const response = await request;
