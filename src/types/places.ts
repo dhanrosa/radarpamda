@@ -39,8 +39,12 @@ export function readPlacesResponse(data: unknown): GooglePlace[] {
     if (place.addressComponents !== undefined) {
       if (!Array.isArray(place.addressComponents)) throw invalid();
       result.addressComponents = place.addressComponents.map(component => {
-        if (!isObject(component) || typeof component.longText !== 'string' || !Array.isArray(component.types) || component.types.some(type => typeof type !== 'string')) throw invalid();
-        return { longText: component.longText, types: component.types as string[] };
+        if (!isObject(component)) throw invalid();
+        if (component.longText !== undefined && typeof component.longText !== 'string') throw invalid();
+        if (component.types !== undefined && (!Array.isArray(component.types) || component.types.some(type => typeof type !== 'string'))) throw invalid();
+        // O Google pode omitir texto ou tipos, por exemplo em complementos de endereço.
+        // Esses componentes não identificam um bairro, mas não invalidam a loja.
+        return { longText: (component.longText as string | undefined) ?? '', types: (component.types as string[] | undefined) ?? [] };
       });
     }
     if (place.location !== undefined) {

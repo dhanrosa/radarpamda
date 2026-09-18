@@ -10,6 +10,27 @@ import { toCSV, strictPayload } from '../src/lib/geoUtils.ts';
 const query = { termos: ['reparos', 'acessórios'], regiao_alvo: 'Curitiba - PR' };
 const fixture = { id: 'test-place-a', displayName: { text: 'Empresa A' }, formattedAddress: 'Endereço de teste', nationalPhoneNumber: '(41) 99999-9999', location: { latitude: -25.4, longitude: -49.2 } };
 
+test('busca preserva resultados quando Google omite types ou longText de um componente de endereço', async () => {
+  const request = { termos: ['assistencia celular', 'acessorios celular', 'capinhas celular'], regiao_alvo: 'pinheirinho' };
+  // Formato observado na resposta real: um complemento tem texto, mas não tem types.
+  const places = [{ ...fixture, addressComponents: [
+    { longText: 'Complemento de endereço', languageCode: 'pt' },
+    { longText: 'Pinheirinho', types: ['sublocality_level_1', 'sublocality', 'political'], languageCode: 'pt' },
+  ] }, { ...fixture, id: 'test-place-b', addressComponents: [{ types: ['neighborhood'] }, {}] }];
+  let calls = 0;
+  const result = await searchLeads(request, (text, token) => searchPlacesPage(text, token, { apiKey: 'test-only', fetchImpl: async () => {
+    calls++;
+    return new Response(JSON.stringify({ places }));
+  } }));
+  assert.equal(calls, 3);
+  assert.equal(result.resultados_processados.length, 2);
+  assert.equal(result.resultados_processados[0].bairro, 'Pinheirinho');
+  assert.equal(result.resultados_processados[1].bairro, '');
+  assert.equal(result.resultados_processados[1].telefone, '+55 (41) 99999-9999');
+  assert.deepEqual(readSearchPage(result), result);
+  assert.ok(toCSV(result.resultados_processados).includes('"Pinheirinho"'));
+});
+
 test('busca todos os termos na região e deduplica por place ID', async () => {
   const calls = [];
   const result = await searchLeads(query, async (text, token) => {
